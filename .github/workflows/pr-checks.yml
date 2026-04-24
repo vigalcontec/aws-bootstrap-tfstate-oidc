@@ -1,22 +1,14 @@
 name: 🔍 PR Quality Checks
 
-# =============================================================================
-# TEMPLATE: Workflow triggers are commented out by default.
-# To enable CI/CD, uncomment the 'on:' section below and push to your repository.
-# =============================================================================
-# on:
-#   pull_request:
-#     branches:
-#       - main
-#       - develop
-#     paths:
-#       - 'modules/bootstrap/**'
-#       - 'live/**'
-#       - '.github/workflows/**'
-
-# Temporary: Only manual trigger while template is being set up
 on:
-  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'modules/bootstrap/**'
+      - 'live/**'
+      - '.github/workflows/**'
 
 permissions:
   contents: read

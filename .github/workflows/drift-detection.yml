@@ -1,28 +1,20 @@
 name: 🔍 Infrastructure Drift Detection
 
-# =============================================================================
-# TEMPLATE: Workflow triggers are commented out by default.
-# To enable drift detection, uncomment the 'on:' section below and push.
-# =============================================================================
-# on:
-#   schedule:
-#     # Run every day at 9 AM UTC
-#     - cron: '0 9 * * *'
-#   workflow_dispatch:
-#     inputs:
-#       environment:
-#         description: 'Environment to check'
-#         required: false
-#         type: choice
-#         options:
-#           - all
-#           - dev
-#           - qa
-#           - prod
-
-# Temporary: Only manual trigger while template is being set up
 on:
+  # Run every day at 9 AM UTC
+  schedule:
+    - cron: '0 9 * * *'
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to check'
+        required: false
+        type: choice
+        options:
+          - all
+          - dev
+          - qa
+          - prod
 
 permissions:
   id-token: write
