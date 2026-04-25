@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **KMSAliasTargetKey** - Added `Project=datalake` tag condition
 - **KMSManageTaggedKeys** - Added `Project=datalake` tag condition for key management
 - **KMSStateUsage** - Added `Project=datalake` tag condition for encryption/decryption
+- **SSMParameterRead** - Added `/{env}/datalake/*` parameter path
+- **SSMParameterWrite** - Added `/{env}/datalake/*` parameter path
 
 ### Supported Datalake Buckets
 

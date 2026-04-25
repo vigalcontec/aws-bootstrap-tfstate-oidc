@@ -359,6 +359,7 @@ data "aws_iam_policy_document" "terraform_deployment" {
     ]
     resources = [
       "arn:aws:ssm:*:${local.account_id}:parameter/${var.environment}/bootstrap/*",
+      "arn:aws:ssm:*:${local.account_id}:parameter/${var.environment}/datalake/*",
     ]
   }
 
@@ -374,6 +375,7 @@ data "aws_iam_policy_document" "terraform_deployment" {
     ]
     resources = [
       "arn:aws:ssm:*:${local.account_id}:parameter/${var.environment}/bootstrap/*",
+      "arn:aws:ssm:*:${local.account_id}:parameter/${var.environment}/datalake/*",
     ]
   }
 
