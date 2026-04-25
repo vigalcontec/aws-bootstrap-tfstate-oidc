@@ -255,11 +255,11 @@ data "aws_iam_policy_document" "terraform_deployment" {
     condition {
       test     = "StringEquals"
       variable = "aws:RequestTag/Project"
-      values   = ["bootstrap"]
+      values   = ["bootstrap", "datalake"]
     }
   }
 
-  # ── KMS: Alias write — scoped to company-prefixed aliases ────────────────────
+  # ── KMS: Alias write — scoped to company-prefixed and datalake aliases ───────
   statement {
     sid    = "KMSAliasWrite"
     effect = "Allow"
@@ -269,6 +269,7 @@ data "aws_iam_policy_document" "terraform_deployment" {
     ]
     resources = [
       "arn:aws:kms:*:${local.account_id}:alias/${var.company_name}-*",
+      "arn:aws:kms:*:${local.account_id}:alias/datalake-*",
     ]
   }
 
@@ -282,7 +283,7 @@ data "aws_iam_policy_document" "terraform_deployment" {
     condition {
       test     = "StringEquals"
       variable = "aws:ResourceTag/Project"
-      values   = ["bootstrap"]
+      values   = ["bootstrap", "datalake"]
     }
   }
 
@@ -294,7 +295,7 @@ data "aws_iam_policy_document" "terraform_deployment" {
     resources = ["*"]
   }
 
-  # ── KMS: Manage existing keys — enforced by Project=bootstrap resource tag ────
+  # ── KMS: Manage existing keys — enforced by Project tag ────────────────────────
   statement {
     sid    = "KMSManageTaggedKeys"
     effect = "Allow"
@@ -315,7 +316,7 @@ data "aws_iam_policy_document" "terraform_deployment" {
     condition {
       test     = "StringEquals"
       variable = "aws:ResourceTag/Project"
-      values   = ["bootstrap"]
+      values   = ["bootstrap", "datalake"]
     }
   }
 
@@ -334,7 +335,7 @@ data "aws_iam_policy_document" "terraform_deployment" {
     condition {
       test     = "StringEquals"
       variable = "aws:ResourceTag/Project"
-      values   = ["bootstrap"]
+      values   = ["bootstrap", "datalake"]
     }
   }
 

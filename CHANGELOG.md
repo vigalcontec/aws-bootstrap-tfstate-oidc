@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **S3StateObjects** - Added datalake bucket ARN for object-level operations
 - **S3BucketCreate** - Added datalake bucket ARN for bucket creation
 - **S3BucketManage** - Added datalake bucket ARN for bucket management (versioning, encryption, lifecycle)
+- **KMSCreateKey** - Added `Project=datalake` tag condition for creating KMS keys
+- **KMSAliasWrite** - Added `datalake-*` alias pattern
+- **KMSAliasTargetKey** - Added `Project=datalake` tag condition
+- **KMSManageTaggedKeys** - Added `Project=datalake` tag condition for key management
+- **KMSStateUsage** - Added `Project=datalake` tag condition for encryption/decryption
 
 ### Supported Datalake Buckets
 
