@@ -386,6 +386,268 @@ data "aws_iam_policy_document" "terraform_deployment" {
     actions   = ["ssm:DescribeParameters"]
     resources = ["*"]
   }
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # ECR: Elastic Container Registry Permissions
+  # ══════════════════════════════════════════════════════════════════════════════
+
+  # ── ECR: Repository management — scoped to environment-prefixed repos ─────────
+  statement {
+    sid    = "ECRRepositoryManagement"
+    effect = "Allow"
+    actions = [
+      "ecr:CreateRepository",
+      "ecr:DeleteRepository",
+      "ecr:DescribeRepositories",
+      "ecr:TagResource",
+      "ecr:UntagResource",
+      "ecr:ListTagsForResource",
+      "ecr:SetRepositoryPolicy",
+      "ecr:GetRepositoryPolicy",
+      "ecr:DeleteRepositoryPolicy",
+      "ecr:PutLifecyclePolicy",
+      "ecr:GetLifecyclePolicy",
+      "ecr:DeleteLifecyclePolicy",
+      "ecr:PutImageScanningConfiguration",
+      "ecr:PutImageTagMutability",
+    ]
+    resources = [
+      "arn:aws:ecr:*:${local.account_id}:repository/*-${var.environment}",
+      "arn:aws:ecr:*:${local.account_id}:repository/*-${var.environment}-*",
+    ]
+  }
+
+  # ── ECR: Image operations — push, pull, delete images ─────────────────────────
+  statement {
+    sid    = "ECRImageOperations"
+    effect = "Allow"
+    actions = [
+      "ecr:GetDownloadUrlForLayer",
+      "ecr:BatchGetImage",
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:PutImage",
+      "ecr:InitiateLayerUpload",
+      "ecr:UploadLayerPart",
+      "ecr:CompleteLayerUpload",
+      "ecr:BatchDeleteImage",
+      "ecr:DescribeImages",
+      "ecr:ListImages",
+    ]
+    resources = [
+      "arn:aws:ecr:*:${local.account_id}:repository/*-${var.environment}",
+      "arn:aws:ecr:*:${local.account_id}:repository/*-${var.environment}-*",
+    ]
+  }
+
+  # ── ECR: Authorization token — no resource-level support, must be * ───────────
+  statement {
+    sid       = "ECRGetAuthorizationToken"
+    effect    = "Allow"
+    actions   = ["ecr:GetAuthorizationToken"]
+    resources = ["*"]
+  }
+
+  # ── ECR: Describe registries — no resource-level support, must be * ───────────
+  statement {
+    sid    = "ECRDescribeOperations"
+    effect = "Allow"
+    actions = [
+      "ecr:DescribeRegistry",
+      "ecr:DescribePullThroughCacheRules",
+    ]
+    resources = ["*"]
+  }
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # Lambda: Function Management Permissions
+  # ══════════════════════════════════════════════════════════════════════════════
+
+  # ── Lambda: Function management — scoped to environment-prefixed functions ────
+  statement {
+    sid    = "LambdaFunctionManagement"
+    effect = "Allow"
+    actions = [
+      "lambda:CreateFunction",
+      "lambda:DeleteFunction",
+      "lambda:GetFunction",
+      "lambda:GetFunctionConfiguration",
+      "lambda:UpdateFunctionCode",
+      "lambda:UpdateFunctionConfiguration",
+      "lambda:PublishVersion",
+      "lambda:ListVersionsByFunction",
+      "lambda:GetFunctionCodeSigningConfig",
+      "lambda:TagResource",
+      "lambda:UntagResource",
+      "lambda:ListTags",
+    ]
+    resources = [
+      "arn:aws:lambda:*:${local.account_id}:function:*-${var.environment}",
+      "arn:aws:lambda:*:${local.account_id}:function:*-${var.environment}-*",
+    ]
+  }
+
+  # ── Lambda: Alias and version management ──────────────────────────────────────
+  statement {
+    sid    = "LambdaAliasManagement"
+    effect = "Allow"
+    actions = [
+      "lambda:CreateAlias",
+      "lambda:DeleteAlias",
+      "lambda:GetAlias",
+      "lambda:UpdateAlias",
+      "lambda:ListAliases",
+    ]
+    resources = [
+      "arn:aws:lambda:*:${local.account_id}:function:*-${var.environment}",
+      "arn:aws:lambda:*:${local.account_id}:function:*-${var.environment}:*",
+      "arn:aws:lambda:*:${local.account_id}:function:*-${var.environment}-*",
+      "arn:aws:lambda:*:${local.account_id}:function:*-${var.environment}-*:*",
+    ]
+  }
+
+  # ── Lambda: Event source mappings ─────────────────────────────────────────────
+  statement {
+    sid    = "LambdaEventSourceMapping"
+    effect = "Allow"
+    actions = [
+      "lambda:CreateEventSourceMapping",
+      "lambda:DeleteEventSourceMapping",
+      "lambda:GetEventSourceMapping",
+      "lambda:UpdateEventSourceMapping",
+      "lambda:ListEventSourceMappings",
+    ]
+    resources = ["*"]
+  }
+
+  # ── Lambda: Permissions and policies ──────────────────────────────────────────
+  statement {
+    sid    = "LambdaPermissions"
+    effect = "Allow"
+    actions = [
+      "lambda:AddPermission",
+      "lambda:RemovePermission",
+      "lambda:GetPolicy",
+    ]
+    resources = [
+      "arn:aws:lambda:*:${local.account_id}:function:*-${var.environment}",
+      "arn:aws:lambda:*:${local.account_id}:function:*-${var.environment}-*",
+    ]
+  }
+
+  # ── Lambda: Concurrency and reserved capacity ─────────────────────────────────
+  statement {
+    sid    = "LambdaConcurrency"
+    effect = "Allow"
+    actions = [
+      "lambda:PutFunctionConcurrency",
+      "lambda:DeleteFunctionConcurrency",
+      "lambda:GetFunctionConcurrency",
+      "lambda:PutProvisionedConcurrencyConfig",
+      "lambda:DeleteProvisionedConcurrencyConfig",
+      "lambda:GetProvisionedConcurrencyConfig",
+      "lambda:ListProvisionedConcurrencyConfigs",
+    ]
+    resources = [
+      "arn:aws:lambda:*:${local.account_id}:function:*-${var.environment}",
+      "arn:aws:lambda:*:${local.account_id}:function:*-${var.environment}-*",
+    ]
+  }
+
+  # ── Lambda: List functions — no resource-level support, must be * ─────────────
+  statement {
+    sid       = "LambdaListFunctions"
+    effect    = "Allow"
+    actions   = ["lambda:ListFunctions"]
+    resources = ["*"]
+  }
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # IAM: Lambda Execution Role Management
+  # ══════════════════════════════════════════════════════════════════════════════
+
+  # ── IAM: Lambda execution roles — scoped to lambda-prefixed roles ─────────────
+  statement {
+    sid    = "IAMLambdaRoleManagement"
+    effect = "Allow"
+    actions = [
+      "iam:CreateRole",
+      "iam:DeleteRole",
+      "iam:GetRole",
+      "iam:UpdateRole",
+      "iam:UpdateAssumeRolePolicy",
+      "iam:TagRole",
+      "iam:UntagRole",
+      "iam:PutRolePolicy",
+      "iam:DeleteRolePolicy",
+      "iam:GetRolePolicy",
+      "iam:ListRolePolicies",
+      "iam:AttachRolePolicy",
+      "iam:DetachRolePolicy",
+      "iam:ListAttachedRolePolicies",
+      "iam:ListInstanceProfilesForRole",
+    ]
+    resources = [
+      "arn:aws:iam::${local.account_id}:role/*-${var.environment}-lambda",
+      "arn:aws:iam::${local.account_id}:role/*-${var.environment}-lambda-*",
+      "arn:aws:iam::${local.account_id}:role/lambda-*-${var.environment}",
+      "arn:aws:iam::${local.account_id}:role/lambda-*-${var.environment}-*",
+    ]
+  }
+
+  # ── IAM: PassRole for Lambda — allow passing roles to Lambda service ──────────
+  statement {
+    sid       = "IAMPassRoleToLambda"
+    effect    = "Allow"
+    actions   = ["iam:PassRole"]
+    resources = [
+      "arn:aws:iam::${local.account_id}:role/*-${var.environment}-lambda",
+      "arn:aws:iam::${local.account_id}:role/*-${var.environment}-lambda-*",
+      "arn:aws:iam::${local.account_id}:role/lambda-*-${var.environment}",
+      "arn:aws:iam::${local.account_id}:role/lambda-*-${var.environment}-*",
+    ]
+    condition {
+      test     = "StringEquals"
+      variable = "iam:PassedToService"
+      values   = ["lambda.amazonaws.com"]
+    }
+  }
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # CloudWatch Logs: Lambda Log Groups
+  # ══════════════════════════════════════════════════════════════════════════════
+
+  # ── CloudWatch Logs: Log group management for Lambda ──────────────────────────
+  statement {
+    sid    = "CloudWatchLogsManagement"
+    effect = "Allow"
+    actions = [
+      "logs:CreateLogGroup",
+      "logs:DeleteLogGroup",
+      "logs:DescribeLogGroups",
+      "logs:PutRetentionPolicy",
+      "logs:DeleteRetentionPolicy",
+      "logs:TagLogGroup",
+      "logs:UntagLogGroup",
+      "logs:ListTagsLogGroup",
+      "logs:TagResource",
+      "logs:UntagResource",
+      "logs:ListTagsForResource",
+    ]
+    resources = [
+      "arn:aws:logs:*:${local.account_id}:log-group:/aws/lambda/*-${var.environment}",
+      "arn:aws:logs:*:${local.account_id}:log-group:/aws/lambda/*-${var.environment}:*",
+      "arn:aws:logs:*:${local.account_id}:log-group:/aws/lambda/*-${var.environment}-*",
+      "arn:aws:logs:*:${local.account_id}:log-group:/aws/lambda/*-${var.environment}-*:*",
+    ]
+  }
+
+  # ── CloudWatch Logs: Describe — no resource-level support, must be * ──────────
+  statement {
+    sid       = "CloudWatchLogsDescribe"
+    effect    = "Allow"
+    actions   = ["logs:DescribeLogGroups"]
+    resources = ["*"]
+  }
 }
 
 # ================================================
