@@ -1,8 +1,42 @@
+# Changelog
 
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.1.0] - 2026-04-25
+
+### Added
+
+- **Data Lake S3 bucket permissions** - IAM policy now supports deploying `aws-datalake-layers` infrastructure
+
+### Changed
+
+- **S3StateBucketList** - Added `datalake-*-{company}-{env}-*` ARN pattern
+- **S3BucketMetadataRead** - Added datalake bucket ARN for plan/refresh operations
+- **S3StateObjects** - Added datalake bucket ARN for object-level operations
+- **S3BucketCreate** - Added datalake bucket ARN for bucket creation
+- **S3BucketManage** - Added datalake bucket ARN for bucket management (versioning, encryption, lifecycle)
+- **KMSCreateKey** - Added `Project=datalake` tag condition for creating KMS keys
+- **KMSAliasWrite** - Added `datalake-*` alias pattern
+- **KMSAliasTargetKey** - Added `Project=datalake` tag condition
+- **KMSManageTaggedKeys** - Added `Project=datalake` tag condition for key management
+- **KMSStateUsage** - Added `Project=datalake` tag condition for encryption/decryption
+- **SSMParameterRead** - Added `/{env}/datalake/*` parameter path
+- **SSMParameterWrite** - Added `/{env}/datalake/*` parameter path
+
+### Supported Datalake Buckets
+
+The IAM policy now allows managing these bucket patterns:
+
+| Layer | Bucket Pattern |
+|-------|----------------|
+| Raw | `datalake-raw-{company}-{env}-{account}` |
+| Staging | `datalake-staging-{company}-{env}-{account}` |
+| Business | `datalake-business-{company}-{env}-{account}` |
+
+---
 
 ## [1.0.0] - 2026-04-24
 
