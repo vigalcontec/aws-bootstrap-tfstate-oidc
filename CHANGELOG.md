@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Lambda permissions** - Complete Lambda function lifecycle management
 - **CloudWatch Logs permissions** - Lambda log group management
 
+### Changed
+
+- **Split IAM policy into 3 policies** - AWS has a 6,144 character limit per managed policy. The single `TerraformDeploymentPolicy` has been split into:
+  - `TerraformDeployment-Core-{env}` - S3, KMS, SSM, STS
+  - `TerraformDeployment-IAM-{env}` - IAM roles, policies, OIDC, CloudTrail
+  - `TerraformDeployment-Lambda-{env}` - ECR, Lambda, CloudWatch Logs
+
 ### ECR Permissions
 
 | Statement | Description |
