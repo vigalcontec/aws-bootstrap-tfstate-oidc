@@ -215,6 +215,7 @@ data "aws_iam_policy_document" "terraform_core" {
     resources = [
       "arn:aws:ssm:*:${local.account_id}:parameter/${var.environment}/bootstrap/*",
       "arn:aws:ssm:*:${local.account_id}:parameter/${var.environment}/datalake/*",
+      "arn:aws:ssm:*:${local.account_id}:parameter/${var.environment}/lambda/*",
     ]
   }
 
