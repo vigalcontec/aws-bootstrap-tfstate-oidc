@@ -109,8 +109,18 @@ run "resource_names_follow_conventions" {
   }
 
   assert {
-    condition     = aws_iam_policy.terraform_deployment.name == "TerraformDeploymentPolicy-dev"
-    error_message = "Policy name must be TerraformDeploymentPolicy-dev"
+    condition     = aws_iam_policy.terraform_core.name == "TerraformDeployment-Core-dev"
+    error_message = "Core policy name must be TerraformDeployment-Core-dev"
+  }
+
+  assert {
+    condition     = aws_iam_policy.terraform_iam.name == "TerraformDeployment-IAM-dev"
+    error_message = "IAM policy name must be TerraformDeployment-IAM-dev"
+  }
+
+  assert {
+    condition     = aws_iam_policy.terraform_lambda.name == "TerraformDeployment-Lambda-dev"
+    error_message = "Lambda policy name must be TerraformDeployment-Lambda-dev"
   }
 
   assert {

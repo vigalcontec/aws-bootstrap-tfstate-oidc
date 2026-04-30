@@ -5,6 +5,61 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2026-04-28
+
+### Added
+
+- **SSM Lambda path** - Added `/{env}/lambda/*` to SSM parameter permissions for Lambda exports
+
+---
+
+## [1.2.0] - 2026-04-27
+
+### Added
+
+- **ECR permissions** - Full Elastic Container Registry support for Lambda container deployments
+- **Lambda permissions** - Complete Lambda function lifecycle management
+- **CloudWatch Logs permissions** - Lambda log group management
+
+### Changed
+
+- **Split IAM policy into 3 policies** - AWS has a 6,144 character limit per managed policy. The single `TerraformDeploymentPolicy` has been split into:
+  - `TerraformDeployment-Core-{env}` - S3, KMS, SSM, STS
+  - `TerraformDeployment-IAM-{env}` - IAM roles, policies, OIDC, CloudTrail
+  - `TerraformDeployment-Lambda-{env}` - ECR, Lambda, CloudWatch Logs
+
+### ECR Permissions
+
+| Statement | Description |
+|-----------|-------------|
+| ECRRepositoryManagement | Create, delete, describe repos, policies, lifecycle, scanning |
+| ECRImageOperations | Push, pull, delete images, layer operations |
+| ECRGetAuthorizationToken | Docker login authentication |
+| ECRDescribeOperations | Describe registry |
+
+### Lambda Permissions
+
+| Statement | Description |
+|-----------|-------------|
+| LambdaFunctionManagement | Create, delete, update functions, versions, tags |
+| LambdaAliasManagement | Manage function aliases |
+| LambdaEventSourceMapping | SQS, Kinesis, DynamoDB triggers |
+| LambdaPermissions | API Gateway, S3 trigger permissions |
+| LambdaConcurrency | Reserved and provisioned concurrency |
+| IAMLambdaRoleManagement | Create/manage Lambda execution roles |
+| IAMPassRoleToLambda | Pass roles to Lambda service |
+| CloudWatchLogsManagement | Lambda log group lifecycle |
+
+### Resource Patterns
+
+All resources scoped to environment:
+- ECR: `*-{env}`, `*-{env}-*`
+- Lambda: `*-{env}`, `*-{env}-*`
+- IAM Roles: `*-{env}-lambda`, `lambda-*-{env}`
+- Log Groups: `/aws/lambda/*-{env}`, `/aws/lambda/*-{env}-*`
+
+---
+
 ## [1.1.0] - 2026-04-25
 
 ### Added

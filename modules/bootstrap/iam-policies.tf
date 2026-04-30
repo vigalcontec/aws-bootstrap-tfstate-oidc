@@ -1,5 +1,7 @@
 # ================================================
-# Terraform Deployment IAM Policy
+# Terraform Deployment IAM Policies
+#
+# Split into multiple policies to avoid AWS 6,144 character limit.
 #
 # Security model:
 #   1. OIDC trust policy — only GitHub Actions from allowed repos/branches can assume this role.
@@ -8,9 +10,18 @@
 #                          support resource-level permissions (list operations, kms:CreateKey).
 #   3. KMS condition     — kms:CreateKey requires aws:RequestTag/Project = "bootstrap".
 #                          KMS management actions require aws:ResourceTag/Project = "bootstrap".
+#
+# Policies:
+#   - Core: S3, KMS, SSM, STS (state management and core infrastructure)
+#   - IAM: IAM roles, policies, OIDC, CloudTrail
+#   - Lambda: ECR, Lambda, CloudWatch Logs
 # ================================================
 
-data "aws_iam_policy_document" "terraform_deployment" {
+# ══════════════════════════════════════════════════════════════════════════════
+# POLICY 1: Core Infrastructure (S3, KMS, SSM, STS)
+# ══════════════════════════════════════════════════════════════════════════════
+
+data "aws_iam_policy_document" "terraform_core" {
 
   # ── S3: List the state bucket ───────────────────────────────────────────────
   statement {
@@ -43,15 +54,11 @@ data "aws_iam_policy_document" "terraform_deployment" {
       "s3:GetBucketWebsite",
       "s3:GetAccelerateConfiguration",
       "s3:GetBucketRequestPayment",
-      "s3:GetBucketLogging",
       "s3:GetReplicationConfiguration",
-      "s3:GetEncryptionConfiguration",
-      "s3:GetBucketObjectLockConfiguration",
       "s3:PutEncryptionConfiguration",
       "s3:ListBucketVersions",
       "s3:PutBucketLogging",
-      "s3:GetBucketOwnershipControls",
-      "s3:PutBucketOwnershipControls"
+      "s3:PutBucketOwnershipControls",
     ]
     resources = [
       "arn:aws:s3:::tfstate-${var.company_name}-${var.environment}-*",
@@ -68,7 +75,7 @@ data "aws_iam_policy_document" "terraform_deployment" {
     resources = ["*"]
   }
 
-  # ── S3: State object read/write (scoped to bootstrap key prefix) ────────────
+  # ── S3: State object read/write ─────────────────────────────────────────────
   statement {
     sid    = "S3StateObjects"
     effect = "Allow"
@@ -85,27 +92,14 @@ data "aws_iam_policy_document" "terraform_deployment" {
     ]
   }
 
-  # ── S3: Create environment-scoped buckets ───────────────────────────────────
-  statement {
-    sid    = "S3BucketCreate"
-    effect = "Allow"
-    actions = [
-      "s3:CreateBucket",
-      "s3:PutBucketTagging",
-    ]
-    resources = [
-      "arn:aws:s3:::tfstate-${var.company_name}-${var.environment}-*",
-      "arn:aws:s3:::cloudtrail-${var.company_name}-${var.environment}-*",
-      "arn:aws:s3:::datalake-*-${var.company_name}-${var.environment}-*",
-    ]
-  }
-
-  # ── S3: Manage existing environment-scoped buckets ──────────────────────────
+  # ── S3: Create and manage buckets ───────────────────────────────────────────
   statement {
     sid    = "S3BucketManage"
     effect = "Allow"
     actions = [
+      "s3:CreateBucket",
       "s3:DeleteBucket",
+      "s3:PutBucketTagging",
       "s3:PutBucketVersioning",
       "s3:PutEncryptionConfiguration",
       "s3:PutBucketPublicAccessBlock",
@@ -124,7 +118,122 @@ data "aws_iam_policy_document" "terraform_deployment" {
     ]
   }
 
-  # ── IAM: List operations — no resource-level support, must be * ─────────────
+  # ── KMS: CreateKey — enforce Project tag ────────────────────────────────────
+  statement {
+    sid       = "KMSCreateKey"
+    effect    = "Allow"
+    actions   = ["kms:CreateKey"]
+    resources = ["*"]
+    condition {
+      test     = "StringEquals"
+      variable = "aws:RequestTag/Project"
+      values   = ["bootstrap", "datalake"]
+    }
+  }
+
+  # ── KMS: Alias management ───────────────────────────────────────────────────
+  statement {
+    sid    = "KMSAliasWrite"
+    effect = "Allow"
+    actions = [
+      "kms:CreateAlias",
+      "kms:DeleteAlias",
+    ]
+    resources = [
+      "arn:aws:kms:*:${local.account_id}:alias/${var.company_name}-*",
+      "arn:aws:kms:*:${local.account_id}:alias/datalake-*",
+    ]
+  }
+
+  statement {
+    sid       = "KMSAliasTargetKey"
+    effect    = "Allow"
+    actions   = ["kms:CreateAlias"]
+    resources = ["arn:aws:kms:*:${local.account_id}:key/*"]
+    condition {
+      test     = "StringEquals"
+      variable = "aws:ResourceTag/Project"
+      values   = ["bootstrap", "datalake"]
+    }
+  }
+
+  statement {
+    sid       = "KMSListAliases"
+    effect    = "Allow"
+    actions   = ["kms:ListAliases"]
+    resources = ["*"]
+  }
+
+  # ── KMS: Manage tagged keys ─────────────────────────────────────────────────
+  statement {
+    sid    = "KMSManageTaggedKeys"
+    effect = "Allow"
+    actions = [
+      "kms:DescribeKey",
+      "kms:EnableKeyRotation",
+      "kms:GetKeyPolicy",
+      "kms:GetKeyRotationStatus",
+      "kms:ListResourceTags",
+      "kms:PutKeyPolicy",
+      "kms:ScheduleKeyDeletion",
+      "kms:TagResource",
+      "kms:UntagResource",
+      "kms:UpdateKeyDescription",
+      "kms:GenerateDataKey",
+      "kms:Decrypt",
+      "kms:Encrypt",
+    ]
+    resources = ["*"]
+    condition {
+      test     = "StringEquals"
+      variable = "aws:ResourceTag/Project"
+      values   = ["bootstrap", "datalake"]
+    }
+  }
+
+  # ── STS & SSM ───────────────────────────────────────────────────────────────
+  statement {
+    sid       = "STSGetCallerIdentity"
+    effect    = "Allow"
+    actions   = ["sts:GetCallerIdentity"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid    = "SSMParameterAccess"
+    effect = "Allow"
+    actions = [
+      "ssm:GetParameter",
+      "ssm:GetParameters",
+      "ssm:GetParametersByPath",
+      "ssm:PutParameter",
+      "ssm:DeleteParameter",
+      "ssm:AddTagsToResource",
+      "ssm:RemoveTagsFromResource",
+      "ssm:ListTagsForResource",
+    ]
+    resources = [
+      "arn:aws:ssm:*:${local.account_id}:parameter/${var.environment}/bootstrap/*",
+      "arn:aws:ssm:*:${local.account_id}:parameter/${var.environment}/datalake/*",
+      "arn:aws:ssm:*:${local.account_id}:parameter/${var.environment}/lambda/*",
+    ]
+  }
+
+  statement {
+    sid       = "SSMDescribeParameters"
+    effect    = "Allow"
+    actions   = ["ssm:DescribeParameters"]
+    resources = ["*"]
+  }
+}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# POLICY 2: IAM & CloudTrail
+# ══════════════════════════════════════════════════════════════════════════════
+
+data "aws_iam_policy_document" "terraform_iam" {
+
+  # ── IAM: List operations ────────────────────────────────────────────────────
   statement {
     sid    = "IAMListOperations"
     effect = "Allow"
@@ -136,7 +245,7 @@ data "aws_iam_policy_document" "terraform_deployment" {
     resources = ["*"]
   }
 
-  # ── IAM: OIDC provider — scoped to GitHub's specific provider URL ───────────
+  # ── IAM: OIDC provider ──────────────────────────────────────────────────────
   statement {
     sid    = "IAMOIDCProviderManagement"
     effect = "Allow"
@@ -153,7 +262,7 @@ data "aws_iam_policy_document" "terraform_deployment" {
     ]
   }
 
-  # ── IAM: Role management — scoped to this environment's bootstrap role ───────
+  # ── IAM: Bootstrap role management ──────────────────────────────────────────
   statement {
     sid    = "IAMRoleManagement"
     effect = "Allow"
@@ -178,7 +287,7 @@ data "aws_iam_policy_document" "terraform_deployment" {
     ]
   }
 
-  # ── IAM: Policy management — scoped to this environment's deployment policy ──
+  # ── IAM: Policy management ──────────────────────────────────────────────────
   statement {
     sid    = "IAMPolicyManagement"
     effect = "Allow"
@@ -195,11 +304,11 @@ data "aws_iam_policy_document" "terraform_deployment" {
       "iam:UntagPolicy",
     ]
     resources = [
-      "arn:aws:iam::${local.account_id}:policy/TerraformDeploymentPolicy-${var.environment}",
+      "arn:aws:iam::${local.account_id}:policy/TerraformDeployment-*-${var.environment}",
     ]
   }
 
-  # ── IAM: PassRole — scoped to this environment's role only ──────────────────
+  # ── IAM: PassRole for bootstrap ─────────────────────────────────────────────
   statement {
     sid       = "IAMPassRole"
     effect    = "Allow"
@@ -207,7 +316,54 @@ data "aws_iam_policy_document" "terraform_deployment" {
     resources = ["arn:aws:iam::${local.account_id}:role/github-actions-terraform-${var.environment}"]
   }
 
-  # ── CloudTrail: List/describe — no resource-level support, must be * ─────────
+  # ── IAM: Lambda execution roles ─────────────────────────────────────────────
+  statement {
+    sid    = "IAMLambdaRoleManagement"
+    effect = "Allow"
+    actions = [
+      "iam:CreateRole",
+      "iam:DeleteRole",
+      "iam:GetRole",
+      "iam:UpdateRole",
+      "iam:UpdateAssumeRolePolicy",
+      "iam:TagRole",
+      "iam:UntagRole",
+      "iam:PutRolePolicy",
+      "iam:DeleteRolePolicy",
+      "iam:GetRolePolicy",
+      "iam:ListRolePolicies",
+      "iam:AttachRolePolicy",
+      "iam:DetachRolePolicy",
+      "iam:ListAttachedRolePolicies",
+      "iam:ListInstanceProfilesForRole",
+    ]
+    resources = [
+      "arn:aws:iam::${local.account_id}:role/*-${var.environment}-lambda",
+      "arn:aws:iam::${local.account_id}:role/*-${var.environment}-lambda-*",
+      "arn:aws:iam::${local.account_id}:role/lambda-*-${var.environment}",
+      "arn:aws:iam::${local.account_id}:role/lambda-*-${var.environment}-*",
+    ]
+  }
+
+  # ── IAM: PassRole for Lambda ────────────────────────────────────────────────
+  statement {
+    sid     = "IAMPassRoleToLambda"
+    effect  = "Allow"
+    actions = ["iam:PassRole"]
+    resources = [
+      "arn:aws:iam::${local.account_id}:role/*-${var.environment}-lambda",
+      "arn:aws:iam::${local.account_id}:role/*-${var.environment}-lambda-*",
+      "arn:aws:iam::${local.account_id}:role/lambda-*-${var.environment}",
+      "arn:aws:iam::${local.account_id}:role/lambda-*-${var.environment}-*",
+    ]
+    condition {
+      test     = "StringEquals"
+      variable = "iam:PassedToService"
+      values   = ["lambda.amazonaws.com"]
+    }
+  }
+
+  # ── CloudTrail ──────────────────────────────────────────────────────────────
   statement {
     sid    = "CloudTrailListOperations"
     effect = "Allow"
@@ -219,7 +375,6 @@ data "aws_iam_policy_document" "terraform_deployment" {
     resources = ["*"]
   }
 
-  # ── CloudTrail: Trail management — scoped to this environment's trail ────────
   statement {
     sid    = "CloudTrailManagement"
     effect = "Allow"
@@ -243,161 +398,188 @@ data "aws_iam_policy_document" "terraform_deployment" {
       "arn:aws:cloudtrail:*:${local.account_id}:trail/centralized-audit-trail-${var.environment}",
     ]
   }
+}
 
-  # ── KMS: CreateKey — resource-level not supported; enforce Project tag ────────
-  # AWS evaluates aws:RequestTag at key-creation time before the key ARN exists.
+# ══════════════════════════════════════════════════════════════════════════════
+# POLICY 3: Lambda & ECR
+# ══════════════════════════════════════════════════════════════════════════════
+
+data "aws_iam_policy_document" "terraform_lambda" {
+
+  # ── ECR: Repository management ──────────────────────────────────────────────
   statement {
-    sid       = "KMSCreateKey"
-    effect    = "Allow"
-    actions   = ["kms:CreateKey"]
-    resources = ["*"]
-
-    condition {
-      test     = "StringEquals"
-      variable = "aws:RequestTag/Project"
-      values   = ["bootstrap", "datalake"]
-    }
-  }
-
-  # ── KMS: Alias write — scoped to company-prefixed and datalake aliases ───────
-  statement {
-    sid    = "KMSAliasWrite"
+    sid    = "ECRRepositoryManagement"
     effect = "Allow"
     actions = [
-      "kms:CreateAlias",
-      "kms:DeleteAlias",
+      "ecr:CreateRepository",
+      "ecr:DeleteRepository",
+      "ecr:DescribeRepositories",
+      "ecr:TagResource",
+      "ecr:UntagResource",
+      "ecr:ListTagsForResource",
+      "ecr:SetRepositoryPolicy",
+      "ecr:GetRepositoryPolicy",
+      "ecr:DeleteRepositoryPolicy",
+      "ecr:PutLifecyclePolicy",
+      "ecr:GetLifecyclePolicy",
+      "ecr:DeleteLifecyclePolicy",
+      "ecr:PutImageScanningConfiguration",
+      "ecr:PutImageTagMutability",
     ]
     resources = [
-      "arn:aws:kms:*:${local.account_id}:alias/${var.company_name}-*",
-      "arn:aws:kms:*:${local.account_id}:alias/datalake-*",
+      "arn:aws:ecr:*:${local.account_id}:repository/*-${var.environment}",
+      "arn:aws:ecr:*:${local.account_id}:repository/*-${var.environment}-*",
     ]
   }
 
-  # ── KMS: Allow alias creation to target tagged keys ───────────────────────────
+  # ── ECR: Image operations ───────────────────────────────────────────────────
   statement {
-    sid       = "KMSAliasTargetKey"
-    effect    = "Allow"
-    actions   = ["kms:CreateAlias"]
-    resources = ["arn:aws:kms:*:${local.account_id}:key/*"]
-
-    condition {
-      test     = "StringEquals"
-      variable = "aws:ResourceTag/Project"
-      values   = ["bootstrap", "datalake"]
-    }
-  }
-
-  # ── KMS: ListAliases — no resource-level support, must be * ──────────────────
-  statement {
-    sid       = "KMSListAliases"
-    effect    = "Allow"
-    actions   = ["kms:ListAliases"]
-    resources = ["*"]
-  }
-
-  # ── KMS: Manage existing keys — enforced by Project tag ────────────────────────
-  statement {
-    sid    = "KMSManageTaggedKeys"
+    sid    = "ECRImageOperations"
     effect = "Allow"
     actions = [
-      "kms:DescribeKey",
-      "kms:EnableKeyRotation",
-      "kms:GetKeyPolicy",
-      "kms:GetKeyRotationStatus",
-      "kms:ListResourceTags",
-      "kms:PutKeyPolicy",
-      "kms:ScheduleKeyDeletion",
-      "kms:TagResource",
-      "kms:UntagResource",
-      "kms:UpdateKeyDescription",
-    ]
-    resources = ["*"]
-
-    condition {
-      test     = "StringEquals"
-      variable = "aws:ResourceTag/Project"
-      values   = ["bootstrap", "datalake"]
-    }
-  }
-
-  # ── KMS: State file encryption/decryption — required for S3 backend ──────────
-  statement {
-    sid    = "KMSStateUsage"
-    effect = "Allow"
-    actions = [
-      "kms:GenerateDataKey",
-      "kms:Decrypt",
-      "kms:Encrypt",
-      "kms:DescribeKey"
-    ]
-    resources = ["arn:aws:kms:*:${local.account_id}:key/*"]
-
-    condition {
-      test     = "StringEquals"
-      variable = "aws:ResourceTag/Project"
-      values   = ["bootstrap", "datalake"]
-    }
-  }
-
-  # ── STS: Identity verification used in CI/CD steps ───────────────────────────
-  statement {
-    sid       = "STSGetCallerIdentity"
-    effect    = "Allow"
-    actions   = ["sts:GetCallerIdentity"]
-    resources = ["*"]
-  }
-
-  # ── SSM: Parameter Store — scoped to environment-prefixed parameters ─────────
-  statement {
-    sid    = "SSMParameterRead"
-    effect = "Allow"
-    actions = [
-      "ssm:GetParameter",
-      "ssm:GetParameters",
-      "ssm:GetParametersByPath",
-      "ssm:DescribeParameters",
+      "ecr:GetDownloadUrlForLayer",
+      "ecr:BatchGetImage",
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:PutImage",
+      "ecr:InitiateLayerUpload",
+      "ecr:UploadLayerPart",
+      "ecr:CompleteLayerUpload",
+      "ecr:BatchDeleteImage",
+      "ecr:DescribeImages",
+      "ecr:ListImages",
     ]
     resources = [
-      "arn:aws:ssm:*:${local.account_id}:parameter/${var.environment}/bootstrap/*",
-      "arn:aws:ssm:*:${local.account_id}:parameter/${var.environment}/datalake/*",
+      "arn:aws:ecr:*:${local.account_id}:repository/*-${var.environment}",
+      "arn:aws:ecr:*:${local.account_id}:repository/*-${var.environment}-*",
     ]
   }
 
+  # ── ECR: Global operations ──────────────────────────────────────────────────
   statement {
-    sid    = "SSMParameterWrite"
+    sid    = "ECRGlobalOperations"
     effect = "Allow"
     actions = [
-      "ssm:PutParameter",
-      "ssm:DeleteParameter",
-      "ssm:AddTagsToResource",
-      "ssm:RemoveTagsFromResource",
-      "ssm:ListTagsForResource",
+      "ecr:GetAuthorizationToken",
+      "ecr:DescribeRegistry",
+      "ecr:DescribePullThroughCacheRules",
+    ]
+    resources = ["*"]
+  }
+
+  # ── Lambda: Function management ─────────────────────────────────────────────
+  statement {
+    sid    = "LambdaFunctionManagement"
+    effect = "Allow"
+    actions = [
+      "lambda:CreateFunction",
+      "lambda:DeleteFunction",
+      "lambda:GetFunction",
+      "lambda:GetFunctionConfiguration",
+      "lambda:UpdateFunctionCode",
+      "lambda:UpdateFunctionConfiguration",
+      "lambda:PublishVersion",
+      "lambda:ListVersionsByFunction",
+      "lambda:GetFunctionCodeSigningConfig",
+      "lambda:TagResource",
+      "lambda:UntagResource",
+      "lambda:ListTags",
+      "lambda:CreateAlias",
+      "lambda:DeleteAlias",
+      "lambda:GetAlias",
+      "lambda:UpdateAlias",
+      "lambda:ListAliases",
+      "lambda:AddPermission",
+      "lambda:RemovePermission",
+      "lambda:GetPolicy",
+      "lambda:PutFunctionConcurrency",
+      "lambda:DeleteFunctionConcurrency",
+      "lambda:GetFunctionConcurrency",
     ]
     resources = [
-      "arn:aws:ssm:*:${local.account_id}:parameter/${var.environment}/bootstrap/*",
-      "arn:aws:ssm:*:${local.account_id}:parameter/${var.environment}/datalake/*",
+      "arn:aws:lambda:*:${local.account_id}:function:*-${var.environment}",
+      "arn:aws:lambda:*:${local.account_id}:function:*-${var.environment}:*",
+      "arn:aws:lambda:*:${local.account_id}:function:*-${var.environment}-*",
+      "arn:aws:lambda:*:${local.account_id}:function:*-${var.environment}-*:*",
     ]
   }
 
-  # ── SSM: DescribeParameters — no resource-level support, must be * ───────────
+  # ── Lambda: Global operations ───────────────────────────────────────────────
   statement {
-    sid       = "SSMDescribeParameters"
+    sid    = "LambdaGlobalOperations"
+    effect = "Allow"
+    actions = [
+      "lambda:ListFunctions",
+      "lambda:CreateEventSourceMapping",
+      "lambda:DeleteEventSourceMapping",
+      "lambda:GetEventSourceMapping",
+      "lambda:UpdateEventSourceMapping",
+      "lambda:ListEventSourceMappings",
+    ]
+    resources = ["*"]
+  }
+
+  # ── CloudWatch Logs ─────────────────────────────────────────────────────────
+  statement {
+    sid    = "CloudWatchLogsManagement"
+    effect = "Allow"
+    actions = [
+      "logs:CreateLogGroup",
+      "logs:DeleteLogGroup",
+      "logs:PutRetentionPolicy",
+      "logs:DeleteRetentionPolicy",
+      "logs:TagLogGroup",
+      "logs:UntagLogGroup",
+      "logs:ListTagsLogGroup",
+      "logs:TagResource",
+      "logs:UntagResource",
+      "logs:ListTagsForResource",
+    ]
+    resources = [
+      "arn:aws:logs:*:${local.account_id}:log-group:/aws/lambda/*-${var.environment}",
+      "arn:aws:logs:*:${local.account_id}:log-group:/aws/lambda/*-${var.environment}:*",
+      "arn:aws:logs:*:${local.account_id}:log-group:/aws/lambda/*-${var.environment}-*",
+      "arn:aws:logs:*:${local.account_id}:log-group:/aws/lambda/*-${var.environment}-*:*",
+    ]
+  }
+
+  statement {
+    sid       = "CloudWatchLogsDescribe"
     effect    = "Allow"
-    actions   = ["ssm:DescribeParameters"]
+    actions   = ["logs:DescribeLogGroups"]
     resources = ["*"]
   }
 }
 
 # ================================================
-# IAM Policy Resource
+# IAM Policy Resources
 # ================================================
 
-resource "aws_iam_policy" "terraform_deployment" {
-  name        = "TerraformDeploymentPolicy-${var.environment}"
-  description = "Scoped deployment policy for GitHub Actions bootstrap in ${var.environment}"
-  policy      = data.aws_iam_policy_document.terraform_deployment.json
+resource "aws_iam_policy" "terraform_core" {
+  name        = "TerraformDeployment-Core-${var.environment}"
+  description = "Core infrastructure policy (S3, KMS, SSM) for ${var.environment}"
+  policy      = data.aws_iam_policy_document.terraform_core.json
 
   tags = merge(var.tags, {
-    Name = "TerraformDeploymentPolicy-${var.environment}"
+    Name = "TerraformDeployment-Core-${var.environment}"
+  })
+}
+
+resource "aws_iam_policy" "terraform_iam" {
+  name        = "TerraformDeployment-IAM-${var.environment}"
+  description = "IAM and CloudTrail policy for ${var.environment}"
+  policy      = data.aws_iam_policy_document.terraform_iam.json
+
+  tags = merge(var.tags, {
+    Name = "TerraformDeployment-IAM-${var.environment}"
+  })
+}
+
+resource "aws_iam_policy" "terraform_lambda" {
+  name        = "TerraformDeployment-Lambda-${var.environment}"
+  description = "Lambda and ECR policy for ${var.environment}"
+  policy      = data.aws_iam_policy_document.terraform_lambda.json
+
+  tags = merge(var.tags, {
+    Name = "TerraformDeployment-Lambda-${var.environment}"
   })
 }
