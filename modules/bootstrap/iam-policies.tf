@@ -347,9 +347,9 @@ data "aws_iam_policy_document" "terraform_iam" {
 
   # ── IAM: PassRole for Lambda ────────────────────────────────────────────────
   statement {
-    sid       = "IAMPassRoleToLambda"
-    effect    = "Allow"
-    actions   = ["iam:PassRole"]
+    sid     = "IAMPassRoleToLambda"
+    effect  = "Allow"
+    actions = ["iam:PassRole"]
     resources = [
       "arn:aws:iam::${local.account_id}:role/*-${var.environment}-lambda",
       "arn:aws:iam::${local.account_id}:role/*-${var.environment}-lambda-*",
