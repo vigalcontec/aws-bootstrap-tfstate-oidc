@@ -658,11 +658,14 @@ data "aws_iam_policy_document" "terraform_stepfunctions" {
     ]
   }
 
-  # ── Step Functions: Global list operations ────────────────────────────────────
+  # ── Step Functions: Global operations ──────────────────────────────────────────
   statement {
-    sid       = "StepFunctionsGlobalOperations"
-    effect    = "Allow"
-    actions   = ["states:ListStateMachines"]
+    sid    = "StepFunctionsGlobalOperations"
+    effect = "Allow"
+    actions = [
+      "states:ListStateMachines",
+      "states:ValidateStateMachineDefinition",
+    ]
     resources = ["*"]
   }
 
