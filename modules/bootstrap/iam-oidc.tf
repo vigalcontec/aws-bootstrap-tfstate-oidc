@@ -76,3 +76,8 @@ resource "aws_iam_role_policy_attachment" "terraform_lambda" {
   role       = aws_iam_role.github_actions.name
   policy_arn = aws_iam_policy.terraform_lambda.arn
 }
+
+resource "aws_iam_role_policy_attachment" "terraform_stepfunctions" {
+  role       = aws_iam_role.github_actions.name
+  policy_arn = aws_iam_policy.terraform_stepfunctions.arn
+}
