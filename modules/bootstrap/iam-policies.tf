@@ -719,6 +719,9 @@ data "aws_iam_policy_document" "terraform_stepfunctions" {
   }
 
   # ── CloudWatch Logs: Step Function logs ───────────────────────────────────────
+  # Standard path: /aws/{project_name}/{tool}/{stack_name}
+  # Examples: /aws/clinical-rag-foundry/stepfunction/sf-medical-pdf-parser
+  #           /aws/template/stepfunction/my-step-function
   statement {
     sid    = "CloudWatchLogsStepFunctions"
     effect = "Allow"
@@ -739,10 +742,16 @@ data "aws_iam_policy_document" "terraform_stepfunctions" {
       "logs:DeleteResourcePolicy",
     ]
     resources = [
+      # Standard path: /aws/{project_name}/{tool}/{stack_name}
+      "arn:aws:logs:*:${local.account_id}:log-group:/aws/*/stepfunction/*",
+      "arn:aws:logs:*:${local.account_id}:log-group:/aws/*/stepfunction/*:*",
+      "arn:aws:logs:*:${local.account_id}:log-group:/aws/*/lambda/*",
+      "arn:aws:logs:*:${local.account_id}:log-group:/aws/*/lambda/*:*",
+      # Legacy paths (for backwards compatibility)
       "arn:aws:logs:*:${local.account_id}:log-group:/aws/states/*-${var.environment}",
       "arn:aws:logs:*:${local.account_id}:log-group:/aws/states/*-${var.environment}:*",
-      "arn:aws:logs:*:${local.account_id}:log-group:/aws/states/*-${var.environment}-*",
-      "arn:aws:logs:*:${local.account_id}:log-group:/aws/states/*-${var.environment}-*:*",
+      "arn:aws:logs:*:${local.account_id}:log-group:/aws/lambda/*",
+      "arn:aws:logs:*:${local.account_id}:log-group:/aws/lambda/*:*",
     ]
   }
 }
