@@ -1,8 +1,137 @@
+# Changelog
 
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.3.0] - 2026-05-01
+
+### Added
+
+- **Step Functions permissions** - Full AWS Step Functions state machine lifecycle management
+- **EventBridge permissions** - EventBridge rules and targets for S3 event triggers
+- **New IAM policy** - `TerraformDeployment-StepFunctions-{env}` for Step Functions and EventBridge
+- **SSM Step Function path** - Added `/{env}/stepfunction/*` to SSM parameter permissions
+
+### Step Functions Permissions
+
+| Statement | Description |
+|-----------|-------------|
+| StepFunctionsManagement | Create, delete, update, describe state machines |
+| StepFunctionsExecutions | Start, stop, describe, list executions |
+| StepFunctionsGlobalOperations | List state machines |
+| IAMStepFunctionRoleManagement | Create/manage Step Function execution roles |
+| IAMPassRoleToStepFunctions | Pass roles to `states.amazonaws.com` |
+| CloudWatchLogsStepFunctions | Step Function log group lifecycle |
+
+### EventBridge Permissions
+
+| Statement | Description |
+|-----------|-------------|
+| EventBridgeRuleManagement | Create, delete, enable, disable rules |
+| EventBridgeTargetManagement | Put, remove, list targets |
+| EventBridgeGlobalOperations | List rules and event buses |
+| IAMPassRoleToEventBridge | Pass roles to `events.amazonaws.com` |
+
+### Resource Patterns
+
+All resources scoped to environment:
+- State Machines: `*-{env}`, `*-{env}-*`
+- Executions: `*-{env}:*`, `*-{env}-*:*`
+- EventBridge Rules: `*-{env}-*`
+- IAM Roles: `*-{env}-sfn`, `*-{env}-eventbridge`
+- Log Groups: `/aws/states/*-{env}`, `/aws/states/*-{env}-*`
+
+---
+
+## [1.2.1] - 2026-04-28
+
+### Added
+
+- **SSM Lambda path** - Added `/{env}/lambda/*` to SSM parameter permissions for Lambda exports
+
+---
+
+## [1.2.0] - 2026-04-27
+
+### Added
+
+- **ECR permissions** - Full Elastic Container Registry support for Lambda container deployments
+- **Lambda permissions** - Complete Lambda function lifecycle management
+- **CloudWatch Logs permissions** - Lambda log group management
+
+### Changed
+
+- **Split IAM policy into 3 policies** - AWS has a 6,144 character limit per managed policy. The single `TerraformDeploymentPolicy` has been split into:
+  - `TerraformDeployment-Core-{env}` - S3, KMS, SSM, STS
+  - `TerraformDeployment-IAM-{env}` - IAM roles, policies, OIDC, CloudTrail
+  - `TerraformDeployment-Lambda-{env}` - ECR, Lambda, CloudWatch Logs
+
+### ECR Permissions
+
+| Statement | Description |
+|-----------|-------------|
+| ECRRepositoryManagement | Create, delete, describe repos, policies, lifecycle, scanning |
+| ECRImageOperations | Push, pull, delete images, layer operations |
+| ECRGetAuthorizationToken | Docker login authentication |
+| ECRDescribeOperations | Describe registry |
+
+### Lambda Permissions
+
+| Statement | Description |
+|-----------|-------------|
+| LambdaFunctionManagement | Create, delete, update functions, versions, tags |
+| LambdaAliasManagement | Manage function aliases |
+| LambdaEventSourceMapping | SQS, Kinesis, DynamoDB triggers |
+| LambdaPermissions | API Gateway, S3 trigger permissions |
+| LambdaConcurrency | Reserved and provisioned concurrency |
+| IAMLambdaRoleManagement | Create/manage Lambda execution roles |
+| IAMPassRoleToLambda | Pass roles to Lambda service |
+| CloudWatchLogsManagement | Lambda log group lifecycle |
+
+### Resource Patterns
+
+All resources scoped to environment:
+- ECR: `*-{env}`, `*-{env}-*`
+- Lambda: `*-{env}`, `*-{env}-*`
+- IAM Roles: `*-{env}-lambda`, `lambda-*-{env}`
+- Log Groups: `/aws/lambda/*-{env}`, `/aws/lambda/*-{env}-*`
+
+---
+
+## [1.1.0] - 2026-04-25
+
+### Added
+
+- **Data Lake S3 bucket permissions** - IAM policy now supports deploying `aws-datalake-layers` infrastructure
+
+### Changed
+
+- **S3StateBucketList** - Added `datalake-*-{company}-{env}-*` ARN pattern
+- **S3BucketMetadataRead** - Added datalake bucket ARN for plan/refresh operations
+- **S3StateObjects** - Added datalake bucket ARN for object-level operations
+- **S3BucketCreate** - Added datalake bucket ARN for bucket creation
+- **S3BucketManage** - Added datalake bucket ARN for bucket management (versioning, encryption, lifecycle)
+- **KMSCreateKey** - Added `Project=datalake` tag condition for creating KMS keys
+- **KMSAliasWrite** - Added `datalake-*` alias pattern
+- **KMSAliasTargetKey** - Added `Project=datalake` tag condition
+- **KMSManageTaggedKeys** - Added `Project=datalake` tag condition for key management
+- **KMSStateUsage** - Added `Project=datalake` tag condition for encryption/decryption
+- **SSMParameterRead** - Added `/{env}/datalake/*` parameter path
+- **SSMParameterWrite** - Added `/{env}/datalake/*` parameter path
+
+### Supported Datalake Buckets
+
+The IAM policy now allows managing these bucket patterns:
+
+| Layer | Bucket Pattern |
+|-------|----------------|
+| Raw | `datalake-raw-{company}-{env}-{account}` |
+| Staging | `datalake-staging-{company}-{env}-{account}` |
+| Business | `datalake-business-{company}-{env}-{account}` |
+
+---
 
 ## [1.0.0] - 2026-04-24
 
