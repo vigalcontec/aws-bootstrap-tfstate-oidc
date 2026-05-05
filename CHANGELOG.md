@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-05-01
+
+### Added
+
+- **Step Functions permissions** - Full AWS Step Functions state machine lifecycle management
+- **EventBridge permissions** - EventBridge rules and targets for S3 event triggers
+- **New IAM policy** - `TerraformDeployment-StepFunctions-{env}` for Step Functions and EventBridge
+- **SSM Step Function path** - Added `/{env}/stepfunction/*` to SSM parameter permissions
+
+### Step Functions Permissions
+
+| Statement | Description |
+|-----------|-------------|
+| StepFunctionsManagement | Create, delete, update, describe state machines |
+| StepFunctionsExecutions | Start, stop, describe, list executions |
+| StepFunctionsGlobalOperations | List state machines |
+| IAMStepFunctionRoleManagement | Create/manage Step Function execution roles |
+| IAMPassRoleToStepFunctions | Pass roles to `states.amazonaws.com` |
+| CloudWatchLogsStepFunctions | Step Function log group lifecycle |
+
+### EventBridge Permissions
+
+| Statement | Description |
+|-----------|-------------|
+| EventBridgeRuleManagement | Create, delete, enable, disable rules |
+| EventBridgeTargetManagement | Put, remove, list targets |
+| EventBridgeGlobalOperations | List rules and event buses |
+| IAMPassRoleToEventBridge | Pass roles to `events.amazonaws.com` |
+
+### Resource Patterns
+
+All resources scoped to environment:
+- State Machines: `*-{env}`, `*-{env}-*`
+- Executions: `*-{env}:*`, `*-{env}-*:*`
+- EventBridge Rules: `*-{env}-*`
+- IAM Roles: `*-{env}-sfn`, `*-{env}-eventbridge`
+- Log Groups: `/aws/states/*-{env}`, `/aws/states/*-{env}-*`
+
+---
+
 ## [1.2.1] - 2026-04-28
 
 ### Added

@@ -15,6 +15,7 @@
 #   - Core: S3, KMS, SSM, STS (state management and core infrastructure)
 #   - IAM: IAM roles, policies, OIDC, CloudTrail
 #   - Lambda: ECR, Lambda, CloudWatch Logs
+#   - StepFunctions: Step Functions, EventBridge
 # ================================================
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -215,7 +216,8 @@ data "aws_iam_policy_document" "terraform_core" {
     resources = [
       "arn:aws:ssm:*:${local.account_id}:parameter/${var.environment}/bootstrap/*",
       "arn:aws:ssm:*:${local.account_id}:parameter/${var.environment}/datalake/*",
-      "arn:aws:ssm:*:${local.account_id}:parameter/${var.environment}/lambda/*",
+      "arn:aws:ssm:*:${local.account_id}:parameter/${var.environment}/*/stepfunction/*",
+      "arn:aws:ssm:*:${local.account_id}:parameter/${var.environment}/*/lambda/*",
     ]
   }
 
@@ -343,6 +345,67 @@ data "aws_iam_policy_document" "terraform_iam" {
       "arn:aws:iam::${local.account_id}:role/lambda-*-${var.environment}",
       "arn:aws:iam::${local.account_id}:role/lambda-*-${var.environment}-*",
     ]
+  }
+
+  # ── IAM: Step Function execution roles ────────────────────────────────────────
+  statement {
+    sid    = "IAMStepFunctionRoleManagement"
+    effect = "Allow"
+    actions = [
+      "iam:CreateRole",
+      "iam:DeleteRole",
+      "iam:GetRole",
+      "iam:UpdateRole",
+      "iam:UpdateAssumeRolePolicy",
+      "iam:TagRole",
+      "iam:UntagRole",
+      "iam:PutRolePolicy",
+      "iam:DeleteRolePolicy",
+      "iam:GetRolePolicy",
+      "iam:ListRolePolicies",
+      "iam:AttachRolePolicy",
+      "iam:DetachRolePolicy",
+      "iam:ListAttachedRolePolicies",
+      "iam:ListInstanceProfilesForRole",
+    ]
+    resources = [
+      "arn:aws:iam::${local.account_id}:role/*-${var.environment}-sfn",
+      "arn:aws:iam::${local.account_id}:role/*-${var.environment}-sfn-*",
+      "arn:aws:iam::${local.account_id}:role/*-${var.environment}-eventbridge",
+      "arn:aws:iam::${local.account_id}:role/*-${var.environment}-eventbridge-*",
+    ]
+  }
+
+  # ── IAM: PassRole for Step Functions ──────────────────────────────────────────
+  statement {
+    sid     = "IAMPassRoleToStepFunctions"
+    effect  = "Allow"
+    actions = ["iam:PassRole"]
+    resources = [
+      "arn:aws:iam::${local.account_id}:role/*-${var.environment}-sfn",
+      "arn:aws:iam::${local.account_id}:role/*-${var.environment}-sfn-*",
+    ]
+    condition {
+      test     = "StringEquals"
+      variable = "iam:PassedToService"
+      values   = ["states.amazonaws.com"]
+    }
+  }
+
+  # ── IAM: PassRole for EventBridge ─────────────────────────────────────────────
+  statement {
+    sid     = "IAMPassRoleToEventBridge"
+    effect  = "Allow"
+    actions = ["iam:PassRole"]
+    resources = [
+      "arn:aws:iam::${local.account_id}:role/*-${var.environment}-eventbridge",
+      "arn:aws:iam::${local.account_id}:role/*-${var.environment}-eventbridge-*",
+    ]
+    condition {
+      test     = "StringEquals"
+      variable = "iam:PassedToService"
+      values   = ["events.amazonaws.com"]
+    }
   }
 
   # ── IAM: PassRole for Lambda ────────────────────────────────────────────────
@@ -550,6 +613,149 @@ data "aws_iam_policy_document" "terraform_lambda" {
   }
 }
 
+# ══════════════════════════════════════════════════════════════════════════════
+# POLICY 4: Step Functions & EventBridge
+# ══════════════════════════════════════════════════════════════════════════════
+
+data "aws_iam_policy_document" "terraform_stepfunctions" {
+
+  # ── Step Functions: State machine management ──────────────────────────────────
+  statement {
+    sid    = "StepFunctionsManagement"
+    effect = "Allow"
+    actions = [
+      "states:CreateStateMachine",
+      "states:DeleteStateMachine",
+      "states:DescribeStateMachine",
+      "states:UpdateStateMachine",
+      "states:ListStateMachines",
+      "states:ListStateMachineVersions",
+      "states:PublishStateMachineVersion",
+      "states:DeleteStateMachineVersion",
+      "states:DescribeStateMachineForExecution",
+      "states:TagResource",
+      "states:UntagResource",
+      "states:ListTagsForResource",
+    ]
+    resources = [
+      "arn:aws:states:*:${local.account_id}:stateMachine:*-${var.environment}",
+      "arn:aws:states:*:${local.account_id}:stateMachine:*-${var.environment}-*",
+    ]
+  }
+
+  # ── Step Functions: Execution operations ──────────────────────────────────────
+  statement {
+    sid    = "StepFunctionsExecutions"
+    effect = "Allow"
+    actions = [
+      "states:StartExecution",
+      "states:StopExecution",
+      "states:DescribeExecution",
+      "states:ListExecutions",
+      "states:GetExecutionHistory",
+    ]
+    resources = [
+      "arn:aws:states:*:${local.account_id}:stateMachine:*-${var.environment}",
+      "arn:aws:states:*:${local.account_id}:stateMachine:*-${var.environment}-*",
+      "arn:aws:states:*:${local.account_id}:execution:*-${var.environment}:*",
+      "arn:aws:states:*:${local.account_id}:execution:*-${var.environment}-*:*",
+    ]
+  }
+
+  # ── Step Functions: Global operations ──────────────────────────────────────────
+  statement {
+    sid    = "StepFunctionsGlobalOperations"
+    effect = "Allow"
+    actions = [
+      "states:ListStateMachines",
+      "states:ValidateStateMachineDefinition",
+    ]
+    resources = ["*"]
+  }
+
+  # ── EventBridge: Rule management ──────────────────────────────────────────────
+  statement {
+    sid    = "EventBridgeRuleManagement"
+    effect = "Allow"
+    actions = [
+      "events:PutRule",
+      "events:DeleteRule",
+      "events:DescribeRule",
+      "events:EnableRule",
+      "events:DisableRule",
+      "events:ListRules",
+      "events:TagResource",
+      "events:UntagResource",
+      "events:ListTagsForResource",
+    ]
+    resources = [
+      "arn:aws:events:*:${local.account_id}:rule/*-${var.environment}-*",
+    ]
+  }
+
+  # ── EventBridge: Target management ────────────────────────────────────────────
+  statement {
+    sid    = "EventBridgeTargetManagement"
+    effect = "Allow"
+    actions = [
+      "events:PutTargets",
+      "events:RemoveTargets",
+      "events:ListTargetsByRule",
+    ]
+    resources = [
+      "arn:aws:events:*:${local.account_id}:rule/*-${var.environment}-*",
+    ]
+  }
+
+  # ── EventBridge: Global operations ────────────────────────────────────────────
+  statement {
+    sid    = "EventBridgeGlobalOperations"
+    effect = "Allow"
+    actions = [
+      "events:ListRules",
+      "events:ListEventBuses",
+    ]
+    resources = ["*"]
+  }
+
+  # ── CloudWatch Logs: Step Function logs ───────────────────────────────────────
+  # Standard path: /aws/{project_name}/{tool}/{stack_name}
+  # Examples: /aws/clinical-rag-foundry/stepfunction/sf-medical-pdf-parser
+  #           /aws/template/stepfunction/my-step-function
+  statement {
+    sid    = "CloudWatchLogsStepFunctions"
+    effect = "Allow"
+    actions = [
+      "logs:CreateLogGroup",
+      "logs:DeleteLogGroup",
+      "logs:PutRetentionPolicy",
+      "logs:DeleteRetentionPolicy",
+      "logs:DescribeLogGroups",
+      "logs:TagLogGroup",
+      "logs:UntagLogGroup",
+      "logs:ListTagsLogGroup",
+      "logs:TagResource",
+      "logs:UntagResource",
+      "logs:ListTagsForResource",
+      "logs:PutResourcePolicy",
+      "logs:DescribeResourcePolicies",
+      "logs:DeleteResourcePolicy",
+    ]
+    resources = [
+      # Standard path: /aws/{project_name}/{tool}/{stack_name}
+      "arn:aws:logs:*:${local.account_id}:log-group:/aws/*/stepfunction/*",
+      "arn:aws:logs:*:${local.account_id}:log-group:/aws/*/stepfunction/*:*",
+      "arn:aws:logs:*:${local.account_id}:log-group:/aws/*/lambda/*",
+      "arn:aws:logs:*:${local.account_id}:log-group:/aws/*/lambda/*:*",
+      # Legacy paths (for backwards compatibility)
+      "arn:aws:logs:*:${local.account_id}:log-group:/aws/states/*-${var.environment}",
+      "arn:aws:logs:*:${local.account_id}:log-group:/aws/states/*-${var.environment}:*",
+      "arn:aws:logs:*:${local.account_id}:log-group:/aws/lambda/*",
+      "arn:aws:logs:*:${local.account_id}:log-group:/aws/lambda/*:*",
+    ]
+  }
+}
+
 # ================================================
 # IAM Policy Resources
 # ================================================
@@ -581,5 +787,15 @@ resource "aws_iam_policy" "terraform_lambda" {
 
   tags = merge(var.tags, {
     Name = "TerraformDeployment-Lambda-${var.environment}"
+  })
+}
+
+resource "aws_iam_policy" "terraform_stepfunctions" {
+  name        = "TerraformDeployment-StepFunctions-${var.environment}"
+  description = "Step Functions and EventBridge policy for ${var.environment}"
+  policy      = data.aws_iam_policy_document.terraform_stepfunctions.json
+
+  tags = merge(var.tags, {
+    Name = "TerraformDeployment-StepFunctions-${var.environment}"
   })
 }
