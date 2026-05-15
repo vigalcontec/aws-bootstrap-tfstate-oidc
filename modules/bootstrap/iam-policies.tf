@@ -833,6 +833,9 @@ data "aws_iam_policy_document" "terraform_budget" {
       "budgets:UpdateBudgetAction",
       "budgets:DescribeBudgetAction",
       "budgets:DescribeBudgetActionsForBudget",
+      "budgets:TagResource",
+      "budgets:UntagResource",
+      "budgets:ListTagsForResource",
     ]
     resources = [
       "arn:aws:budgets::${local.account_id}:budget/*",
