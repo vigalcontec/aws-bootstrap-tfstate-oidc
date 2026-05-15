@@ -216,6 +216,7 @@ data "aws_iam_policy_document" "terraform_core" {
     resources = [
       "arn:aws:ssm:*:${local.account_id}:parameter/${var.environment}/bootstrap/*",
       "arn:aws:ssm:*:${local.account_id}:parameter/${var.environment}/datalake/*",
+      "arn:aws:ssm:*:${local.account_id}:parameter/${var.environment}/budget-guardian/*",
       "arn:aws:ssm:*:${local.account_id}:parameter/${var.environment}/*/stepfunction/*",
       "arn:aws:ssm:*:${local.account_id}:parameter/${var.environment}/*/lambda/*",
     ]
@@ -756,9 +757,112 @@ data "aws_iam_policy_document" "terraform_stepfunctions" {
   }
 }
 
+# ══════════════════════════════════════════════════════════════════════════════
+# POLICY 5: Budget Guardian (SNS & Budgets)
+# ══════════════════════════════════════════════════════════════════════════════
+
+data "aws_iam_policy_document" "terraform_budget" {
+
+  # ── SNS: Topic management ──────────────────────────────────────────────────
+  statement {
+    sid    = "SNSTopicManagement"
+    effect = "Allow"
+    actions = [
+      "sns:CreateTopic",
+      "sns:DeleteTopic",
+      "sns:GetTopicAttributes",
+      "sns:SetTopicAttributes",
+      "sns:TagResource",
+      "sns:UntagResource",
+      "sns:ListTagsForResource",
+    ]
+    resources = [
+      "arn:aws:sns:*:${local.account_id}:budget-alerts-*-${var.environment}",
+    ]
+  }
+
+  # ── SNS: Topic policy management ───────────────────────────────────────────
+  statement {
+    sid    = "SNSTopicPolicyManagement"
+    effect = "Allow"
+    actions = [
+      "sns:GetTopicAttributes",
+      "sns:SetTopicAttributes",
+    ]
+    resources = [
+      "arn:aws:sns:*:${local.account_id}:budget-alerts-*-${var.environment}",
+    ]
+  }
+
+  # ── SNS: Subscription management ───────────────────────────────────────────
+  statement {
+    sid    = "SNSSubscriptionManagement"
+    effect = "Allow"
+    actions = [
+      "sns:Subscribe",
+      "sns:Unsubscribe",
+      "sns:GetSubscriptionAttributes",
+      "sns:SetSubscriptionAttributes",
+      "sns:ListSubscriptionsByTopic",
+    ]
+    resources = [
+      "arn:aws:sns:*:${local.account_id}:budget-alerts-*-${var.environment}",
+    ]
+  }
+
+  # ── SNS: Global operations ─────────────────────────────────────────────────
+  statement {
+    sid    = "SNSGlobalOperations"
+    effect = "Allow"
+    actions = [
+      "sns:ListTopics",
+      "sns:ListSubscriptions",
+    ]
+    resources = ["*"]
+  }
+
+  # ── Budgets: Budget management ─────────────────────────────────────────────
+  statement {
+    sid    = "BudgetsManagement"
+    effect = "Allow"
+    actions = [
+      "budgets:ViewBudget",
+      "budgets:ModifyBudget",
+      "budgets:CreateBudgetAction",
+      "budgets:DeleteBudgetAction",
+      "budgets:UpdateBudgetAction",
+      "budgets:DescribeBudgetAction",
+      "budgets:DescribeBudgetActionsForBudget",
+    ]
+    resources = [
+      "arn:aws:budgets::${local.account_id}:budget/*",
+    ]
+  }
+
+  # ── Budgets: Global operations ─────────────────────────────────────────────
+  statement {
+    sid    = "BudgetsGlobalOperations"
+    effect = "Allow"
+    actions = [
+      "budgets:DescribeBudgets",
+    ]
+    resources = ["*"]
+  }
+}
+
 # ================================================
 # IAM Policy Resources
 # ================================================
+
+resource "aws_iam_policy" "terraform_budget" {
+  name        = "TerraformDeployment-Budget-${var.environment}"
+  description = "Budget Guardian policy (SNS, Budgets) for ${var.environment}"
+  policy      = data.aws_iam_policy_document.terraform_budget.json
+
+  tags = merge(var.tags, {
+    Name = "TerraformDeployment-Budget-${var.environment}"
+  })
+}
 
 resource "aws_iam_policy" "terraform_core" {
   name        = "TerraformDeployment-Core-${var.environment}"
