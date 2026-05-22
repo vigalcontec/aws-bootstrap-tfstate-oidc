@@ -111,6 +111,8 @@ data "aws_iam_policy_document" "terraform_core" {
       "s3:PutBucketOwnershipControls",
       "s3:PutBucketLogging",
       "s3:PutBucketAcl",
+      "s3:PutBucketNotification",
+      "s3:GetBucketNotification",
     ]
     resources = [
       "arn:aws:s3:::tfstate-${var.company_name}-${var.environment}-*",
