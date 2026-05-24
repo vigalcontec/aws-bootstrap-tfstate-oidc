@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-05-15
+
+### Added
+
+- **Budget Guardian permissions** - AWS Budgets and SNS for cost monitoring alerts
+- **New IAM policy** - `TerraformDeployment-Budget-{env}` for SNS and Budgets
+- **SSM Budget Guardian path** - Added `/{env}/budget-guardian/*` to SSM parameter permissions
+
+### Budget Guardian Permissions
+
+| Statement | Description |
+|-----------|-------------|
+| SNSTopicManagement | Create, delete, manage SNS topics |
+| SNSSubscriptionManagement | Subscribe, unsubscribe, manage subscriptions |
+| SNSGlobalOperations | List topics and subscriptions |
+| BudgetsManagement | View, modify budgets and budget actions |
+| BudgetsGlobalOperations | Describe budgets |
+
+### Resource Patterns
+
+- SNS Topics: `budget-alerts-*-{env}`
+- Budgets: `budget/*` (account-level)
+- SSM Parameters: `/{env}/budget-guardian/*`
+
+---
+
 ## [1.3.0] - 2026-05-01
 
 ### Added
