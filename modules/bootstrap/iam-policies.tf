@@ -216,11 +216,8 @@ data "aws_iam_policy_document" "terraform_core" {
       "ssm:ListTagsForResource",
     ]
     resources = [
-      "arn:aws:ssm:*:${local.account_id}:parameter/${var.environment}/bootstrap/*",
-      "arn:aws:ssm:*:${local.account_id}:parameter/${var.environment}/datalake/*",
-      "arn:aws:ssm:*:${local.account_id}:parameter/${var.environment}/budget-guardian/*",
-      "arn:aws:ssm:*:${local.account_id}:parameter/${var.environment}/*/stepfunction/*",
-      "arn:aws:ssm:*:${local.account_id}:parameter/${var.environment}/*/lambda/*",
+      # General pattern: /{env}/{project}/{service}/* - works for all services
+      "arn:aws:ssm:*:${local.account_id}:parameter/${var.environment}/*",
     ]
   }
 

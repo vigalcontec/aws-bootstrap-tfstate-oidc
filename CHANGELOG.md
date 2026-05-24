@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-05-24
+
+### Added
+
+- **DynamoDB permissions** - Full DynamoDB table lifecycle management
+- **New IAM policy** - `TerraformDeployment-DynamoDB-{env}` for DynamoDB operations
+
+### Changed
+
+- **SSM parameter permissions** - Simplified to general pattern `/{env}/*` to support all services (Lambda, DynamoDB, ECS, Step Functions, etc.)
+
+### DynamoDB Permissions
+
+| Statement | Description |
+|-----------|-------------|
+| DynamoDBTableManagement | Create, delete, update, describe tables |
+| DynamoDBGlobalOperations | List tables, describe limits |
+| DynamoDBAutoScaling | Auto-scaling for provisioned mode |
+
+### Resource Patterns
+
+- DynamoDB Tables: `*-{env}` (table name must end with environment suffix)
+- SSM Parameters: `/{env}/*` (all parameters under environment prefix)
+
+---
+
 ## [1.4.0] - 2026-05-15
 
 ### Added
