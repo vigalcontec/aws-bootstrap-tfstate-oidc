@@ -855,9 +855,80 @@ data "aws_iam_policy_document" "terraform_budget" {
   }
 }
 
+# ══════════════════════════════════════════════════════════════════════════════
+# POLICY 6: DynamoDB
+# ══════════════════════════════════════════════════════════════════════════════
+
+data "aws_iam_policy_document" "terraform_dynamodb" {
+
+  # ── DynamoDB: Table management ────────────────────────────────────────────────
+  statement {
+    sid    = "DynamoDBTableManagement"
+    effect = "Allow"
+    actions = [
+      "dynamodb:CreateTable",
+      "dynamodb:DeleteTable",
+      "dynamodb:DescribeTable",
+      "dynamodb:DescribeTimeToLive",
+      "dynamodb:UpdateTable",
+      "dynamodb:UpdateTimeToLive",
+      "dynamodb:DescribeContinuousBackups",
+      "dynamodb:UpdateContinuousBackups",
+      "dynamodb:ListTagsOfResource",
+      "dynamodb:TagResource",
+      "dynamodb:UntagResource",
+    ]
+    resources = [
+      "arn:aws:dynamodb:*:${local.account_id}:table/*-${var.environment}",
+      "arn:aws:dynamodb:*:${local.account_id}:table/*-${var.environment}/*",
+    ]
+  }
+
+  # ── DynamoDB: Global operations ───────────────────────────────────────────────
+  statement {
+    sid    = "DynamoDBGlobalOperations"
+    effect = "Allow"
+    actions = [
+      "dynamodb:ListTables",
+      "dynamodb:DescribeLimits",
+    ]
+    resources = ["*"]
+  }
+
+  # ── DynamoDB: Auto Scaling (for provisioned mode) ─────────────────────────────
+  statement {
+    sid    = "DynamoDBAutoScaling"
+    effect = "Allow"
+    actions = [
+      "application-autoscaling:RegisterScalableTarget",
+      "application-autoscaling:DeregisterScalableTarget",
+      "application-autoscaling:DescribeScalableTargets",
+      "application-autoscaling:PutScalingPolicy",
+      "application-autoscaling:DeleteScalingPolicy",
+      "application-autoscaling:DescribeScalingPolicies",
+    ]
+    resources = ["*"]
+    condition {
+      test     = "StringEquals"
+      variable = "application-autoscaling:service-namespace"
+      values   = ["dynamodb"]
+    }
+  }
+}
+
 # ================================================
 # IAM Policy Resources
 # ================================================
+
+resource "aws_iam_policy" "terraform_dynamodb" {
+  name        = "TerraformDeployment-DynamoDB-${var.environment}"
+  description = "DynamoDB policy for ${var.environment}"
+  policy      = data.aws_iam_policy_document.terraform_dynamodb.json
+
+  tags = merge(var.tags, {
+    Name = "TerraformDeployment-DynamoDB-${var.environment}"
+  })
+}
 
 resource "aws_iam_policy" "terraform_budget" {
   name        = "TerraformDeployment-Budget-${var.environment}"

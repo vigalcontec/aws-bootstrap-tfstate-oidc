@@ -86,3 +86,8 @@ resource "aws_iam_role_policy_attachment" "terraform_budget" {
   role       = aws_iam_role.github_actions.name
   policy_arn = aws_iam_policy.terraform_budget.arn
 }
+
+resource "aws_iam_role_policy_attachment" "terraform_dynamodb" {
+  role       = aws_iam_role.github_actions.name
+  policy_arn = aws_iam_policy.terraform_dynamodb.arn
+}
