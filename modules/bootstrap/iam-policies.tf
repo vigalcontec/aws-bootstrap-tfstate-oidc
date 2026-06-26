@@ -216,11 +216,8 @@ data "aws_iam_policy_document" "terraform_core" {
       "ssm:ListTagsForResource",
     ]
     resources = [
-      "arn:aws:ssm:*:${local.account_id}:parameter/${var.environment}/bootstrap/*",
-      "arn:aws:ssm:*:${local.account_id}:parameter/${var.environment}/datalake/*",
-      "arn:aws:ssm:*:${local.account_id}:parameter/${var.environment}/budget-guardian/*",
-      "arn:aws:ssm:*:${local.account_id}:parameter/${var.environment}/*/stepfunction/*",
-      "arn:aws:ssm:*:${local.account_id}:parameter/${var.environment}/*/lambda/*",
+      # General pattern: /{env}/{project}/{service}/* - works for all services
+      "arn:aws:ssm:*:${local.account_id}:parameter/${var.environment}/*",
     ]
   }
 
@@ -855,9 +852,80 @@ data "aws_iam_policy_document" "terraform_budget" {
   }
 }
 
+# ══════════════════════════════════════════════════════════════════════════════
+# POLICY 6: DynamoDB
+# ══════════════════════════════════════════════════════════════════════════════
+
+data "aws_iam_policy_document" "terraform_dynamodb" {
+
+  # ── DynamoDB: Table management ────────────────────────────────────────────────
+  statement {
+    sid    = "DynamoDBTableManagement"
+    effect = "Allow"
+    actions = [
+      "dynamodb:CreateTable",
+      "dynamodb:DeleteTable",
+      "dynamodb:DescribeTable",
+      "dynamodb:DescribeTimeToLive",
+      "dynamodb:UpdateTable",
+      "dynamodb:UpdateTimeToLive",
+      "dynamodb:DescribeContinuousBackups",
+      "dynamodb:UpdateContinuousBackups",
+      "dynamodb:ListTagsOfResource",
+      "dynamodb:TagResource",
+      "dynamodb:UntagResource",
+    ]
+    resources = [
+      "arn:aws:dynamodb:*:${local.account_id}:table/*-${var.environment}",
+      "arn:aws:dynamodb:*:${local.account_id}:table/*-${var.environment}/*",
+    ]
+  }
+
+  # ── DynamoDB: Global operations ───────────────────────────────────────────────
+  statement {
+    sid    = "DynamoDBGlobalOperations"
+    effect = "Allow"
+    actions = [
+      "dynamodb:ListTables",
+      "dynamodb:DescribeLimits",
+    ]
+    resources = ["*"]
+  }
+
+  # ── DynamoDB: Auto Scaling (for provisioned mode) ─────────────────────────────
+  statement {
+    sid    = "DynamoDBAutoScaling"
+    effect = "Allow"
+    actions = [
+      "application-autoscaling:RegisterScalableTarget",
+      "application-autoscaling:DeregisterScalableTarget",
+      "application-autoscaling:DescribeScalableTargets",
+      "application-autoscaling:PutScalingPolicy",
+      "application-autoscaling:DeleteScalingPolicy",
+      "application-autoscaling:DescribeScalingPolicies",
+    ]
+    resources = ["*"]
+    condition {
+      test     = "StringEquals"
+      variable = "application-autoscaling:service-namespace"
+      values   = ["dynamodb"]
+    }
+  }
+}
+
 # ================================================
 # IAM Policy Resources
 # ================================================
+
+resource "aws_iam_policy" "terraform_dynamodb" {
+  name        = "TerraformDeployment-DynamoDB-${var.environment}"
+  description = "DynamoDB policy for ${var.environment}"
+  policy      = data.aws_iam_policy_document.terraform_dynamodb.json
+
+  tags = merge(var.tags, {
+    Name = "TerraformDeployment-DynamoDB-${var.environment}"
+  })
+}
 
 resource "aws_iam_policy" "terraform_budget" {
   name        = "TerraformDeployment-Budget-${var.environment}"
@@ -906,5 +974,277 @@ resource "aws_iam_policy" "terraform_stepfunctions" {
 
   tags = merge(var.tags, {
     Name = "TerraformDeployment-StepFunctions-${var.environment}"
+  })
+}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# POLICY 7: VPC & Networking
+# ══════════════════════════════════════════════════════════════════════════════
+
+data "aws_iam_policy_document" "terraform_vpc" {
+
+  # ── VPC: Core VPC management ─────────────────────────────────────────────────
+  statement {
+    sid    = "VPCManagement"
+    effect = "Allow"
+    actions = [
+      "ec2:CreateVpc",
+      "ec2:DeleteVpc",
+      "ec2:DescribeVpcs",
+      "ec2:DescribeVpcAttribute",
+      "ec2:ModifyVpcAttribute",
+      "ec2:CreateTags",
+      "ec2:DeleteTags",
+      "ec2:DescribeTags",
+    ]
+    resources = ["*"]
+  }
+
+  # ── VPC: Subnets ─────────────────────────────────────────────────────────────
+  statement {
+    sid    = "SubnetManagement"
+    effect = "Allow"
+    actions = [
+      "ec2:CreateSubnet",
+      "ec2:DeleteSubnet",
+      "ec2:DescribeSubnets",
+      "ec2:ModifySubnetAttribute",
+    ]
+    resources = ["*"]
+  }
+
+  # ── VPC: Internet Gateway ────────────────────────────────────────────────────
+  statement {
+    sid    = "InternetGatewayManagement"
+    effect = "Allow"
+    actions = [
+      "ec2:CreateInternetGateway",
+      "ec2:DeleteInternetGateway",
+      "ec2:DescribeInternetGateways",
+      "ec2:AttachInternetGateway",
+      "ec2:DetachInternetGateway",
+    ]
+    resources = ["*"]
+  }
+
+  # ── VPC: NAT Gateway ─────────────────────────────────────────────────────────
+  statement {
+    sid    = "NATGatewayManagement"
+    effect = "Allow"
+    actions = [
+      "ec2:CreateNatGateway",
+      "ec2:DeleteNatGateway",
+      "ec2:DescribeNatGateways",
+    ]
+    resources = ["*"]
+  }
+
+  # ── VPC: Elastic IPs ─────────────────────────────────────────────────────────
+  statement {
+    sid    = "ElasticIPManagement"
+    effect = "Allow"
+    actions = [
+      "ec2:AllocateAddress",
+      "ec2:ReleaseAddress",
+      "ec2:DescribeAddresses",
+      "ec2:AssociateAddress",
+      "ec2:DisassociateAddress",
+    ]
+    resources = ["*"]
+  }
+
+  # ── VPC: Route Tables ────────────────────────────────────────────────────────
+  statement {
+    sid    = "RouteTableManagement"
+    effect = "Allow"
+    actions = [
+      "ec2:CreateRouteTable",
+      "ec2:DeleteRouteTable",
+      "ec2:DescribeRouteTables",
+      "ec2:CreateRoute",
+      "ec2:DeleteRoute",
+      "ec2:ReplaceRoute",
+      "ec2:AssociateRouteTable",
+      "ec2:DisassociateRouteTable",
+      "ec2:ReplaceRouteTableAssociation",
+    ]
+    resources = ["*"]
+  }
+
+  # ── VPC: Security Groups ─────────────────────────────────────────────────────
+  statement {
+    sid    = "SecurityGroupManagement"
+    effect = "Allow"
+    actions = [
+      "ec2:CreateSecurityGroup",
+      "ec2:DeleteSecurityGroup",
+      "ec2:DescribeSecurityGroups",
+      "ec2:DescribeSecurityGroupRules",
+      "ec2:AuthorizeSecurityGroupIngress",
+      "ec2:AuthorizeSecurityGroupEgress",
+      "ec2:RevokeSecurityGroupIngress",
+      "ec2:RevokeSecurityGroupEgress",
+      "ec2:ModifySecurityGroupRules",
+      "ec2:UpdateSecurityGroupRuleDescriptionsIngress",
+      "ec2:UpdateSecurityGroupRuleDescriptionsEgress",
+    ]
+    resources = ["*"]
+  }
+
+  # ── VPC: VPC Endpoints ───────────────────────────────────────────────────────
+  statement {
+    sid    = "VPCEndpointManagement"
+    effect = "Allow"
+    actions = [
+      "ec2:CreateVpcEndpoint",
+      "ec2:DeleteVpcEndpoints",
+      "ec2:DescribeVpcEndpoints",
+      "ec2:DescribeVpcEndpointServices",
+      "ec2:ModifyVpcEndpoint",
+      "ec2:DescribePrefixLists",
+    ]
+    resources = ["*"]
+  }
+
+  # ── VPC: Flow Logs ───────────────────────────────────────────────────────────
+  statement {
+    sid    = "FlowLogsManagement"
+    effect = "Allow"
+    actions = [
+      "ec2:CreateFlowLogs",
+      "ec2:DeleteFlowLogs",
+      "ec2:DescribeFlowLogs",
+    ]
+    resources = ["*"]
+  }
+
+  # ── VPC: Network ACLs ────────────────────────────────────────────────────────
+  statement {
+    sid    = "NetworkACLManagement"
+    effect = "Allow"
+    actions = [
+      "ec2:CreateNetworkAcl",
+      "ec2:DeleteNetworkAcl",
+      "ec2:DescribeNetworkAcls",
+      "ec2:CreateNetworkAclEntry",
+      "ec2:DeleteNetworkAclEntry",
+      "ec2:ReplaceNetworkAclEntry",
+      "ec2:ReplaceNetworkAclAssociation",
+    ]
+    resources = ["*"]
+  }
+
+  # ── VPC: Availability Zones ──────────────────────────────────────────────────
+  statement {
+    sid    = "AvailabilityZonesDescribe"
+    effect = "Allow"
+    actions = [
+      "ec2:DescribeAvailabilityZones",
+      "ec2:DescribeRegions",
+    ]
+    resources = ["*"]
+  }
+
+  # ── RDS: Subnet Groups ───────────────────────────────────────────────────────
+  statement {
+    sid    = "RDSSubnetGroupManagement"
+    effect = "Allow"
+    actions = [
+      "rds:CreateDBSubnetGroup",
+      "rds:DeleteDBSubnetGroup",
+      "rds:DescribeDBSubnetGroups",
+      "rds:ModifyDBSubnetGroup",
+      "rds:AddTagsToResource",
+      "rds:RemoveTagsFromResource",
+      "rds:ListTagsForResource",
+    ]
+    resources = [
+      "arn:aws:rds:*:${local.account_id}:subgrp:*-${var.environment}-*",
+      "arn:aws:rds:*:${local.account_id}:subgrp:*-${var.environment}",
+    ]
+  }
+
+  # ── RDS: Describe operations ─────────────────────────────────────────────────
+  statement {
+    sid    = "RDSDescribeOperations"
+    effect = "Allow"
+    actions = [
+      "rds:DescribeDBSubnetGroups",
+    ]
+    resources = ["*"]
+  }
+
+  # ── IAM: VPC Flow Logs role ──────────────────────────────────────────────────
+  statement {
+    sid    = "IAMFlowLogsRoleManagement"
+    effect = "Allow"
+    actions = [
+      "iam:CreateRole",
+      "iam:DeleteRole",
+      "iam:GetRole",
+      "iam:UpdateRole",
+      "iam:UpdateAssumeRolePolicy",
+      "iam:TagRole",
+      "iam:UntagRole",
+      "iam:PutRolePolicy",
+      "iam:DeleteRolePolicy",
+      "iam:GetRolePolicy",
+      "iam:ListRolePolicies",
+      "iam:AttachRolePolicy",
+      "iam:DetachRolePolicy",
+      "iam:ListAttachedRolePolicies",
+      "iam:ListInstanceProfilesForRole",
+    ]
+    resources = [
+      "arn:aws:iam::${local.account_id}:role/*-${var.environment}-flow-logs-role",
+    ]
+  }
+
+  # ── IAM: PassRole for VPC Flow Logs ──────────────────────────────────────────
+  statement {
+    sid     = "IAMPassRoleToFlowLogs"
+    effect  = "Allow"
+    actions = ["iam:PassRole"]
+    resources = [
+      "arn:aws:iam::${local.account_id}:role/*-${var.environment}-flow-logs-role",
+    ]
+    condition {
+      test     = "StringEquals"
+      variable = "iam:PassedToService"
+      values   = ["vpc-flow-logs.amazonaws.com"]
+    }
+  }
+
+  # ── CloudWatch Logs: VPC Flow Logs ───────────────────────────────────────────
+  statement {
+    sid    = "CloudWatchLogsVPCFlowLogs"
+    effect = "Allow"
+    actions = [
+      "logs:CreateLogGroup",
+      "logs:DeleteLogGroup",
+      "logs:PutRetentionPolicy",
+      "logs:DeleteRetentionPolicy",
+      "logs:DescribeLogGroups",
+      "logs:TagLogGroup",
+      "logs:UntagLogGroup",
+      "logs:ListTagsLogGroup",
+      "logs:TagResource",
+      "logs:UntagResource",
+      "logs:ListTagsForResource",
+    ]
+    resources = [
+      "arn:aws:logs:*:${local.account_id}:log-group:/aws/vpc/*",
+      "arn:aws:logs:*:${local.account_id}:log-group:/aws/vpc/*:*",
+    ]
+  }
+}
+
+resource "aws_iam_policy" "terraform_vpc" {
+  name        = "TerraformDeployment-VPC-${var.environment}"
+  description = "VPC and Networking policy for ${var.environment}"
+  policy      = data.aws_iam_policy_document.terraform_vpc.json
+
+  tags = merge(var.tags, {
+    Name = "TerraformDeployment-VPC-${var.environment}"
   })
 }
