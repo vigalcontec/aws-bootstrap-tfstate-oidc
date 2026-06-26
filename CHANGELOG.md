@@ -12,6 +12,76 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+## [1.5.0] - 2026-06-26
+
+
+
+### Added
+
+
+
+- **VPC & Networking permissions** - Full VPC infrastructure deployment support
+
+- **New IAM policy** - `TerraformDeployment-VPC-{env}` for EC2/VPC resources
+
+- **SSM VPC path** - Added `/{env}/vpc/*` to SSM parameter permissions
+
+
+
+### VPC Permissions
+
+
+
+| Statement | Description |
+
+|-----------|-------------|
+
+| VPCManagement | Create, delete, describe, modify VPCs |
+
+| SubnetManagement | Create, delete, describe, modify subnets |
+
+| InternetGatewayManagement | Create, delete, attach, detach IGWs |
+
+| NATGatewayManagement | Create, delete, describe NAT Gateways |
+
+| ElasticIPManagement | Allocate, release, associate EIPs |
+
+| RouteTableManagement | Create, delete routes and route tables |
+
+| SecurityGroupManagement | Create, delete, authorize SG rules |
+
+| VPCEndpointManagement | Create, delete, modify VPC endpoints |
+
+| FlowLogsManagement | Create, delete VPC flow logs |
+
+| NetworkACLManagement | Create, delete, modify NACLs |
+
+| RDSSubnetGroupManagement | Create, delete DB subnet groups |
+
+| IAMFlowLogsRoleManagement | Create/manage flow logs IAM role |
+
+| CloudWatchLogsVPCFlowLogs | Manage `/aws/vpc/*` log groups |
+
+
+
+### Resource Patterns
+
+
+
+- VPC resources: `*` (EC2 does not support resource-level permissions for most VPC actions)
+
+- RDS Subnet Groups: `*-{env}-*`, `*-{env}`
+
+- IAM Roles: `*-{env}-flow-logs-role`
+
+- Log Groups: `/aws/vpc/*`
+
+
+
+---
+
+
+
 ## [1.4.0] - 2026-05-15
 
 
