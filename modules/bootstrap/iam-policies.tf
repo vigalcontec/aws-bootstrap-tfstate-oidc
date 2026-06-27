@@ -1311,6 +1311,7 @@ data "aws_iam_policy_document" "terraform_rds" {
     resources = [
       "arn:aws:rds:*:${local.account_id}:*-${var.environment}",
       "arn:aws:rds:*:${local.account_id}:*-${var.environment}-*",
+      "arn:aws:rds::${local.account_id}:global-cluster:*"
     ]
   }
 
