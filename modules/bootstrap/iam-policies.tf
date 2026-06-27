@@ -1308,8 +1308,8 @@ data "aws_iam_policy_document" "terraform_rds" {
       "rds:ListTagsForResource",
     ]
     resources = [
-      "arn:aws:rds:*:${local.account_id}:cluster*-${var.environment}",
-      "arn:aws:rds:*:${local.account_id}:cluster*-${var.environment}-*",
+      "arn:aws:rds:*:${local.account_id}:*-${var.environment}",
+      "arn:aws:rds:*:${local.account_id}:*-${var.environment}-*",
     ]
   }
 
