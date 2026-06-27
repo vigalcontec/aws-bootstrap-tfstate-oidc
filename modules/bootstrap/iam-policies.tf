@@ -1306,6 +1306,7 @@ data "aws_iam_policy_document" "terraform_rds" {
       "rds:AddTagsToResource",
       "rds:RemoveTagsFromResource",
       "rds:ListTagsForResource",
+      "rds:DescribeGlobalClusters"
     ]
     resources = [
       "arn:aws:rds:*:${local.account_id}:*-${var.environment}",
